@@ -1,92 +1,289 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { Wallet, History, MessageCircle, PhoneCall, Wifi, ArrowRight } from 'lucide-react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Platform } from 'react-native';
+import { Wallet, History, MessageCircle, PhoneCall, Wifi, ArrowRight, Zap, ArrowRightLeft, Star, Crown, Shield, User as UserIcon, Medal, ArrowUpRight, ArrowDownLeft, Plus, CheckCircle2, Tv, GraduationCap, Dices, LayoutGrid } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuthStore } from '../../store/useAuthStore';
+import { walletApi, Transaction } from '../../lib/api/wallet';
+import BlobBackground from '../../components/svg/BlobBackground';
+import DotPattern from '../../components/svg/DotPattern';
 
 export default function HomeScreen() {
-  const userName = "Hezekiah Sola";
-  const walletBalance = "₦ 5,240.00";
+  const { user, apiKey, updateWalletBalance } = useAuthStore();
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchDashboardData = useCallback(async () => {
+    if (!apiKey) return;
+    try {
+      const [walletData, txnsData] = await Promise.all([
+        walletApi.getBalance(apiKey).catch(err => {
+          console.error("Failed to load wallet balance", err);
+          return null;
+        }),
+        walletApi.getTransactions(apiKey).catch(err => {
+          console.error("Failed to load transactions", err);
+          return null;
+        })
+      ]);
+
+      if (walletData && walletData.code === 200 && walletData.wallet_balance !== undefined) {
+        updateWalletBalance(walletData.wallet_balance);
+      }
+      
+      if (txnsData !== null) {
+        setTransactions(Array.isArray(txnsData) ? txnsData.slice(0, 4) : []);
+      }
+    } catch (e) {
+      console.error("Dashboard refresh error: ", e);
+    }
+  }, [apiKey, updateWalletBalance]);
+
+  useEffect(() => {
+    let isMounted = true;
+    let intervalId: NodeJS.Timeout;
+
+    if (apiKey) {
+      setIsLoading(true);
+      fetchDashboardData().finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+      intervalId = setInterval(() => {
+        fetchDashboardData();
+      }, 60000);
+    } else {
+      setIsLoading(false);
+    }
+
+    return () => {
+      isMounted = false;
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [apiKey, fetchDashboardData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchDashboardData();
+    setRefreshing(false);
+  }, [fetchDashboardData]);
+
+  const userName = user?.name || user?.username || "Guest";
+  const firstName = userName.split(' ')[0];
+  const walletBalance = user?.wallet ? Number(user.wallet).toLocaleString() : "0.00";
+
+  const getLevelDetails = (level?: string) => {
+    let type = "new user";
+    if (level) {
+      const lower = level.toLowerCase();
+      if (lower.includes("premium") || level.trim() === "5") type = "premium";
+      else if (lower.includes("partner") || level.trim() === "4") type = "partner";
+      else if (lower.includes("reseller") || level.trim() === "3") type = "reseller";
+      else if (lower.includes("basic") || level.trim() === "2") type = "basic";
+    }
+
+    switch (type) {
+      case "premium": return {
+        name: "Premium", icon: Crown, isMaxLevel: true,
+        upgradeIcon: CheckCircle2,
+        upgradeTitle: "You're at the Top! 🎉",
+        upgradeSubtitle: "Enjoy the best rates & 0% fees on everything",
+      };
+      case "partner": return {
+        name: "Partner", icon: Star, isMaxLevel: false,
+        upgradeIcon: Crown,
+        upgradeTitle: "Go Premium",
+        upgradeSubtitle: "0% fees on all transfers & priority support",
+      };
+      case "reseller": return {
+        name: "Reseller", icon: Medal, isMaxLevel: false,
+        upgradeIcon: Star,
+        upgradeTitle: "Become a Partner",
+        upgradeSubtitle: "Higher earning caps & exclusive API access",
+      };
+      case "basic": return {
+        name: "Basic", icon: Shield, isMaxLevel: false,
+        upgradeIcon: Medal,
+        upgradeTitle: "Upgrade to Reseller",
+        upgradeSubtitle: "Earn commissions & unlock bulk discounts",
+      };
+      default: return {
+        name: "Standard", icon: UserIcon, isMaxLevel: false,
+        upgradeIcon: Shield,
+        upgradeTitle: "Upgrade to Basic",
+        upgradeSubtitle: "Lower fees & faster transactions",
+      };
+    }
+  };
+
+  const levelDetails = getLevelDetails(user?.user_level);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Header matching dashboardBG from original app */}
+      <BlobBackground variant="dashboard" />
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#000000" colors={["#000000"]} />
+        }
+      >
+        {/* Modern Minimalist Header */}
         <View style={styles.header}>
-          <Text style={styles.greeting}>Hello,</Text>
-          <Text style={styles.name}>{userName}</Text>
+          <View style={styles.greetingHeaderRow}>
+            <View style={styles.avatarContainer}>
+              <Text style={styles.avatarText}>{firstName.charAt(0).toUpperCase()}</Text>
+            </View>
+            <View style={[styles.levelBadge]}>
+              <levelDetails.icon size={12} color="#0A0A0A" />
+              <Text style={styles.levelBadgeText}>{levelDetails.name}</Text>
+            </View>
+          </View>
           
           <View style={styles.balanceContainer}>
-            <Text style={styles.balanceLabel}>Wallet balance</Text>
-            <Text style={styles.balanceAmount}>{walletBalance}</Text>
+            <Text style={styles.balanceLabel}>Total Balance</Text>
+            <Text style={styles.balanceAmount}>
+              <Text style={styles.currencySymbol}>₦</Text>{walletBalance}
+            </Text>
           </View>
-        </View>
-
-        {/* Quick Actions Bar */}
-        <View style={styles.quickActionsContainer}>
-          <TouchableOpacity style={styles.quickActionCard} onPress={() => router.push('/(features)/fund-wallet')}>
-            <View style={[styles.iconBox, { backgroundColor: '#e0f2fe' }]}>
-              <Wallet size={24} color="#0284c7" />
-            </View>
-            <Text style={styles.quickActionText}>Fund Wallet</Text>
-          </TouchableOpacity>
           
-          <TouchableOpacity style={styles.quickActionCard} onPress={() => router.push('/(tabs)/transactions')}>
-            <View style={[styles.iconBox, { backgroundColor: '#fef3c7' }]}>
-              <History size={24} color="#d97706" />
-            </View>
-            <Text style={styles.quickActionText}>History</Text>
-          </TouchableOpacity>
+          {/* Action Buttons */}
+          <View style={styles.quickActionsContainer}>
+            <TouchableOpacity style={styles.primaryActionBtn} onPress={() => router.push('/(features)/fund-wallet')}>
+              <Plus size={20} color="#FFFFFF" strokeWidth={2.5} />
+              <Text style={styles.primaryActionText}>Fund Wallet</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.secondaryActionBtn} onPress={() => router.push('/(tabs)/transactions')}>
+              <History size={20} color="#0A0A0A" strokeWidth={2} />
+            </TouchableOpacity>
 
-          <TouchableOpacity style={styles.quickActionCard}>
-            <View style={[styles.iconBox, { backgroundColor: '#dcfce7' }]}>
-              <MessageCircle size={24} color="#16a34a" />
-            </View>
-            <Text style={styles.quickActionText}>Support</Text>
-          </TouchableOpacity>
+            <TouchableOpacity style={styles.secondaryActionBtn} onPress={() => router.push('/(features)/help-support')}>
+              <MessageCircle size={20} color="#0A0A0A" strokeWidth={2} />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Upgrade Banner */}
-        <TouchableOpacity style={styles.upgradeBanner}>
-          <View style={styles.upgradeTextContainer}>
-            <Text style={styles.upgradeTitle}>Upgrade Your Account</Text>
-            <Text style={styles.upgradeSubtitle}>Unlock more features</Text>
+        {/* Dynamic Upgrade Banner */}
+        <TouchableOpacity 
+          style={[styles.upgradeBanner, levelDetails.isMaxLevel && styles.upgradeBannerMax]} 
+          activeOpacity={0.9}
+          onPress={() => !levelDetails.isMaxLevel && router.push('/(features)/upgrade')}
+        >
+          <View style={[styles.upgradeIconBox, levelDetails.isMaxLevel && styles.upgradeIconBoxMax]}>
+            <levelDetails.upgradeIcon size={20} color="#FFFFFF" />
           </View>
-          <ArrowRight color="#ffffff" size={20} />
+          <View style={styles.upgradeTextContainer}>
+            <Text style={styles.upgradeTitle}>{levelDetails.upgradeTitle}</Text>
+            <Text style={styles.upgradeSubtitle}>{levelDetails.upgradeSubtitle}</Text>
+          </View>
+          {!levelDetails.isMaxLevel && <ArrowRight color="#A1A1AA" size={20} />}
         </TouchableOpacity>
 
-        {/* Services */}
+        {/* Services - Grid format but much cleaner */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Services</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Essentials</Text>
+          </View>
           <View style={styles.servicesGrid}>
             <TouchableOpacity style={styles.serviceCard} onPress={() => router.push('/(features)/airtime')}>
-              <View style={[styles.serviceIconBox, { backgroundColor: '#fdf4ff' }]}>
-                <PhoneCall size={32} color="#c026d3" />
+              <View style={styles.serviceIconContainer}>
+                <PhoneCall size={24} color="#0A0A0A" strokeWidth={1.5} />
               </View>
-              <Text style={styles.serviceText}>Airtime{'\n'}Top up</Text>
+              <Text style={styles.serviceText}>Airtime</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.serviceCard} onPress={() => router.push('/(features)/buy-data')}>
-              <View style={[styles.serviceIconBox, { backgroundColor: '#eff6ff' }]}>
-                <Wifi size={32} color="#2563eb" />
+              <View style={styles.serviceIconContainer}>
+                <Wifi size={24} color="#0A0A0A" strokeWidth={1.5} />
               </View>
-              <Text style={styles.serviceText}>Buy{'\n'}Data</Text>
+              <Text style={styles.serviceText}>Data</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity style={styles.serviceCard} onPress={() => router.push('/(features)/power')}>
+              <View style={styles.serviceIconContainer}>
+                <Zap size={24} color="#0A0A0A" strokeWidth={1.5} />
+              </View>
+              <Text style={styles.serviceText}>Power</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.serviceCard} onPress={() => router.push('/(features)/cable')}>
+              <View style={styles.serviceIconContainer}>
+                <Tv size={24} color="#0A0A0A" strokeWidth={1.5} />
+              </View>
+              <Text style={styles.serviceText}>Cable</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={[styles.servicesGrid, { marginTop: 20 }]}>
+            <TouchableOpacity style={styles.serviceCard} onPress={() => router.push('/(features)/exam')}>
+              <View style={styles.serviceIconContainer}>
+                <GraduationCap size={24} color="#0A0A0A" strokeWidth={1.5} />
+              </View>
+              <Text style={styles.serviceText}>Exam</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.serviceCard} onPress={() => router.push('/(features)/betting')}>
+              <View style={styles.serviceIconContainer}>
+                <Dices size={24} color="#0A0A0A" strokeWidth={1.5} />
+              </View>
+              <Text style={styles.serviceText}>Betting</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.serviceCard} onPress={() => router.push('/(features)/more')}>
+              <View style={styles.serviceIconContainer}>
+                <LayoutGrid size={24} color="#0A0A0A" strokeWidth={1.5} />
+              </View>
+              <Text style={styles.serviceText}>More</Text>
+            </TouchableOpacity>
+
+            <View style={styles.serviceCard} />
           </View>
         </View>
 
-        {/* Recent Transactions */}
-        <View style={styles.sectionContainer}>
+        {/* Transactions - Clean List */}
+        <View style={[styles.sectionContainer, styles.lastSection]}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Transactions</Text>
+            <Text style={styles.sectionTitle}>Recent Activity</Text>
             <TouchableOpacity onPress={() => router.push('/(tabs)/transactions')}>
-              <Text style={styles.seeAllText}>See all</Text>
+              <Text style={styles.seeAllText}>View All</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.transactionsContainer}>
-            {/* Empty state for now */}
-            <Text style={styles.emptyText}>No recent transactions</Text>
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#0A0A0A" style={{ padding: 20 }} />
+            ) : transactions.length > 0 ? (
+              transactions.map((tx, index) => {
+                const s = (tx.service || '').toLowerCase();
+                const d = (tx.description || '').toLowerCase();
+                const isCredit = d.includes('wallet funding') || d.includes('credit');
+                
+                let IconComp: any = isCredit ? ArrowDownLeft : ArrowUpRight;
+                if (s.includes('airtime')) IconComp = PhoneCall;
+                else if (s.includes('data')) IconComp = Wifi;
+
+                return (
+                  <View key={index} style={[
+                    styles.transactionItem, 
+                    index === transactions.length - 1 && styles.transactionItemLast
+                  ]}>
+                    <View style={styles.txIconBox}>
+                      <IconComp size={18} color={isCredit ? '#10B981' : '#0A0A0A'} strokeWidth={2} />
+                    </View>
+                    <View style={styles.txDetails}>
+                      <Text style={styles.txService} numberOfLines={1}>{tx.description || tx.service || 'Transaction'}</Text>
+                      <Text style={styles.txDate}>{tx.date?.split(' ')[0] || tx.date}</Text>
+                    </View>
+                    <Text style={[styles.txAmount, isCredit && styles.txSuccess]}>
+                      {isCredit ? '+' : '-'}₦{Number(tx.amount || 0).toLocaleString()}
+                    </Text>
+                  </View>
+                );
+              })
+            ) : (
+              <Text style={styles.emptyText}>No recent activity</Text>
+            )}
           </View>
         </View>
 
@@ -98,172 +295,256 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#FFFFFF',
   },
   scrollContent: {
     flexGrow: 1,
-    backgroundColor: '#f8fafc',
     paddingBottom: 40,
   },
   header: {
-    backgroundColor: '#0f172a',
     paddingHorizontal: 24,
     paddingTop: 16,
-    paddingBottom: 60,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    paddingBottom: 32,
   },
-  greeting: {
-    color: '#94a3b8',
-    fontSize: 16,
+  greetingHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 32,
   },
-  name: {
-    color: '#ffffff',
-    fontSize: 24,
-    fontWeight: '700',
-    marginTop: 4,
+  avatarContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  avatarText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#0A0A0A',
+  },
+  levelBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 6,
+  },
+  levelBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0A0A0A',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   balanceContainer: {
-    marginTop: 32,
     alignItems: 'center',
+    marginBottom: 32,
   },
   balanceLabel: {
-    color: '#cbd5e1',
-    fontSize: 16,
+    color: '#6B7280',
+    fontSize: 14,
+    fontWeight: '500',
+    letterSpacing: 0.2,
+    marginBottom: 8,
   },
   balanceAmount: {
-    color: '#ffffff',
-    fontSize: 36,
+    color: '#0A0A0A',
+    fontSize: 48,
     fontWeight: '800',
-    marginTop: 8,
-    letterSpacing: 1,
+    letterSpacing: -1.5,
+    ...Platform.select({ ios: { fontFamily: 'System' } }) // Use system font natively for crispness
+  },
+  currencySymbol: {
+    fontSize: 32,
+    color: '#9CA3AF',
+    fontWeight: '500',
+    marginRight: 4,
   },
   quickActionsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    marginTop: -30,
-  },
-  quickActionCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
     alignItems: 'center',
-    width: '30%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 4,
+    justifyContent: 'center',
+    gap: 12,
   },
-  iconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+  primaryActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: '#0A0A0A',
+    borderRadius: 24,
+    height: 56,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+    gap: 8,
   },
-  quickActionText: {
-    fontSize: 12,
+  primaryActionText: {
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '600',
-    color: '#334155',
+  },
+  secondaryActionBtn: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#F9FAFB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   upgradeBanner: {
     marginHorizontal: 24,
-    marginTop: 32,
-    backgroundColor: '#3b82f6',
-    borderRadius: 16,
-    padding: 20,
+    marginTop: 8,
+    backgroundColor: '#0A0A0A',
+    borderRadius: 20,
+    padding: 18,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    shadowColor: '#3b82f6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5,
+  },
+  upgradeBannerMax: {
+    backgroundColor: '#052E16',
+  },
+  upgradeIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  upgradeIconBoxMax: {
+    backgroundColor: '#10B981',
   },
   upgradeTextContainer: {
     flex: 1,
   },
   upgradeTitle: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '700',
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   upgradeSubtitle: {
-    color: '#bfdbfe',
-    fontSize: 14,
-    marginTop: 4,
+    color: '#9CA3AF',
+    fontSize: 13,
+    marginTop: 2,
   },
   sectionContainer: {
-    marginTop: 32,
+    marginTop: 36,
     paddingHorizontal: 24,
+  },
+  lastSection: {
+    marginBottom: 24,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 16,
+    color: '#0A0A0A',
+    letterSpacing: -0.2,
   },
   seeAllText: {
-    color: '#3b82f6',
-    fontWeight: '600',
+    color: '#6B7280',
+    fontWeight: '500',
     fontSize: 14,
   },
   servicesGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
+    justifyContent: 'space-between',
   },
   serviceCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 20,
-    width: '47%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
+    alignItems: 'center',
+    width: '23%',
   },
-  serviceIconBox: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
+  serviceIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 20,
+    backgroundColor: '#F9FAFB',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.03)',
   },
   serviceText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#334155',
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#4B5563',
   },
   transactionsContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 24,
-    minHeight: 120,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
   },
   emptyText: {
-    color: '#94a3b8',
+    color: '#9CA3AF',
+    fontSize: 14,
+    textAlign: 'center',
+    padding: 32,
+  },
+  transactionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  transactionItemLast: {
+    borderBottomWidth: 0,
+  },
+  txIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#F9FAFB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  txDetails: {
+    flex: 1,
+  },
+  txService: {
     fontSize: 15,
+    fontWeight: '600',
+    color: '#0A0A0A',
+    marginBottom: 4,
+    letterSpacing: -0.1,
+  },
+  txDate: {
+    fontSize: 13,
+    color: '#9CA3AF',
+  },
+  txAmount: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0A0A0A',
+  },
+  txSuccess: {
+    color: '#10B981',
   },
 });
+

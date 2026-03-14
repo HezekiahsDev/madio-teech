@@ -1,9 +1,9 @@
 import { Redirect } from 'expo-router';
+import { useAuthStore } from '../store/useAuthStore';
 
 // Root index simply redirects to the auth or tabs flow
 export default function Index() {
-  // TODO: Add actual auth check
-  const isAuthenticated = false;
+  const { isAuthenticated } = useAuthStore();
 
   if (isAuthenticated) {
     return <Redirect href="/(tabs)" />;

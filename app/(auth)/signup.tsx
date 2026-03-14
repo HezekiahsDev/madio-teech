@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Link, router } from 'expo-router';
 import { User, Lock, Mail, Phone, Eye, EyeOff, Hash } from 'lucide-react-native';
+import { authApi } from '../../lib/api/auth';
+import BlobBackground from '../../components/svg/BlobBackground';
 
 export default function SignupScreen() {
   const [firstName, setFirstName] = useState('');
@@ -17,13 +19,37 @@ export default function SignupScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSignup = () => {
+  const handleSignup = async () => {
+    if (!firstName || !lastName || !email || !username || !phone || !password || !confirmPassword) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+    
+    if (password !== confirmPassword) {
+      alert("Passwords do not match.");
+      return;
+    }
+
     setIsLoading(true);
-    // Simulate signup
-    setTimeout(() => {
+    try {
+      await authApi.register({
+        fulname: `${firstName} ${lastName}`,
+        username,
+        email,
+        phone,
+        pass1: password,
+        pass2: confirmPassword,
+        refer: referralCode || undefined
+      });
+      
+      alert("Registration successful! Please log in.");
+      router.replace('/(auth)/login');
+    } catch (error: any) {
+      console.error('Signup error:', error);
+      alert(error?.response?.data?.message || 'Registration failed. Please try again.');
+    } finally {
       setIsLoading(false);
-      router.replace('/(tabs)');
-    }, 1500);
+    }
   };
 
   return (
@@ -31,10 +57,11 @@ export default function SignupScreen() {
       style={styles.container} 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      <BlobBackground variant="auth" />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.headerContainer}>
           <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Join MadioTech today.</Text>
+          <Text style={styles.subtitle}>Join Madiotech today.</Text>
         </View>
 
         <View style={styles.formContainer}>
@@ -45,7 +72,7 @@ export default function SignupScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="First"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor="#9CA3AF"
                   value={firstName}
                   onChangeText={setFirstName}
                 />
@@ -58,7 +85,7 @@ export default function SignupScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Last"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor="#9CA3AF"
                   value={lastName}
                   onChangeText={setLastName}
                 />
@@ -69,11 +96,11 @@ export default function SignupScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email Address</Text>
             <View style={styles.inputContainer}>
-              <Mail size={20} color="#64748b" style={styles.inputIcon} />
+              <Mail size={20} color="#9CA3AF" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Enter your email"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor="#9CA3AF"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -85,11 +112,11 @@ export default function SignupScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Username</Text>
             <View style={styles.inputContainer}>
-              <User size={20} color="#64748b" style={styles.inputIcon} />
+              <User size={20} color="#9CA3AF" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Choose a username"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor="#9CA3AF"
                 value={username}
                 onChangeText={setUsername}
                 autoCapitalize="none"
@@ -100,11 +127,11 @@ export default function SignupScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Phone Number</Text>
             <View style={styles.inputContainer}>
-              <Phone size={20} color="#64748b" style={styles.inputIcon} />
+              <Phone size={20} color="#9CA3AF" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Enter phone number"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor="#9CA3AF"
                 value={phone}
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
@@ -115,17 +142,17 @@ export default function SignupScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Password</Text>
             <View style={styles.inputContainer}>
-              <Lock size={20} color="#64748b" style={styles.inputIcon} />
+              <Lock size={20} color="#9CA3AF" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Create a password"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor="#9CA3AF"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                 {showPassword ? <EyeOff size={20} color="#64748b" /> : <Eye size={20} color="#64748b" />}
+                 {showPassword ? <EyeOff size={20} color="#9CA3AF" /> : <Eye size={20} color="#9CA3AF" />}
               </TouchableOpacity>
             </View>
           </View>
@@ -133,17 +160,17 @@ export default function SignupScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Confirm Password</Text>
             <View style={styles.inputContainer}>
-              <Lock size={20} color="#64748b" style={styles.inputIcon} />
+              <Lock size={20} color="#9CA3AF" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Confirm your password"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor="#9CA3AF"
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry={!showConfirmPassword}
               />
               <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeIcon}>
-                 {showConfirmPassword ? <EyeOff size={20} color="#64748b" /> : <Eye size={20} color="#64748b" />}
+                 {showConfirmPassword ? <EyeOff size={20} color="#9CA3AF" /> : <Eye size={20} color="#9CA3AF" />}
               </TouchableOpacity>
             </View>
           </View>
@@ -151,11 +178,11 @@ export default function SignupScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Referral Code (Optional)</Text>
             <View style={styles.inputContainer}>
-              <Hash size={20} color="#64748b" style={styles.inputIcon} />
+              <Hash size={20} color="#9CA3AF" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Enter referral code"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor="#9CA3AF"
                 value={referralCode}
                 onChangeText={setReferralCode}
                 autoCapitalize="characters"
@@ -167,15 +194,16 @@ export default function SignupScreen() {
             style={[styles.button, isLoading && styles.buttonDisabled]} 
             onPress={handleSignup}
             disabled={isLoading}
+            activeOpacity={0.9}
           >
-            <Text style={styles.buttonText}>{isLoading ? 'Creating Account...' : 'Sign Up'}</Text>
+            <Text style={styles.buttonText}>{isLoading ? 'Creating Account...' : 'Create Account'}</Text>
           </TouchableOpacity>
 
           <View style={styles.footerContainer}>
             <Text style={styles.footerText}>Already have an account? </Text>
             <Link href="/(auth)/login" asChild>
               <TouchableOpacity>
-                <Text style={styles.footerLink}>Log in</Text>
+                <Text style={styles.footerLink}>Sign in</Text>
               </TouchableOpacity>
             </Link>
           </View>
@@ -188,7 +216,7 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#FFFFFF',
   },
   scrollContent: {
     flexGrow: 1,
@@ -197,93 +225,86 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   headerContainer: {
-    marginBottom: 32,
+    marginBottom: 40,
   },
   title: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: '800',
-    color: '#0f172a',
+    color: '#0A0A0A',
     marginBottom: 8,
+    letterSpacing: -1,
   },
   subtitle: {
     fontSize: 16,
-    color: '#64748b',
+    color: '#6B7280',
+    letterSpacing: 0.2,
   },
   formContainer: {
-    gap: 16,
+    gap: 20,
   },
   row: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 16,
   },
   inputGroup: {
-    gap: 8,
+    gap: 10,
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#334155',
-    marginLeft: 4,
+    color: '#4B5563',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
-    height: 56,
+    borderColor: 'rgba(0,0,0,0.1)',
+    borderRadius: 16,
+    height: 60,
     paddingHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
   },
   inputIcon: {
-    marginRight: 12,
+    marginRight: 10,
   },
   input: {
     flex: 1,
     height: '100%',
     fontSize: 16,
-    color: '#0f172a',
+    color: '#0A0A0A',
+    fontWeight: '500',
   },
   eyeIcon: {
     padding: 8,
   },
   button: {
-    backgroundColor: '#0f172a',
-    height: 56,
-    borderRadius: 12,
+    backgroundColor: '#0A0A0A',
+    height: 60,
+    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 16,
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    marginTop: 24,
   },
   buttonDisabled: {
     opacity: 0.7,
   },
   buttonText: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   footerContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 20,
+    marginTop: 24,
   },
   footerText: {
-    color: '#64748b',
+    color: '#6B7280',
     fontSize: 15,
   },
   footerLink: {
-    color: '#0f172a',
+    color: '#0A0A0A',
     fontSize: 15,
     fontWeight: '700',
   },
