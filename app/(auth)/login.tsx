@@ -1,26 +1,58 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
-import { Link, router } from 'expo-router';
-import { User, Lock, Eye, EyeOff, Fingerprint } from 'lucide-react-native';
-import { authApi } from '../../lib/api/auth';
-import { useAuthStore } from '../../store/useAuthStore';
-import { useBiometricsStore } from '../../store/biometricsStore';
-import { authenticateWithBiometrics } from '../../utils/biometrics';
-import BlobBackground from '../../components/svg/BlobBackground';
-import AuthIllustration from '../../components/svg/AuthIllustration';
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Alert,
+} from "react-native";
+import { Link, router } from "expo-router";
+import { User, Lock, Eye, EyeOff, Fingerprint } from "lucide-react-native";
+import * as SecureStore from "expo-secure-store";
+import { authApi } from "../../lib/api/auth";
+import { useAuthStore } from "../../store/useAuthStore";
+import { useBiometricsStore } from "../../store/biometricsStore";
+import { authenticateWithBiometrics } from "../../utils/biometrics";
+import BlobBackground from "../../components/svg/BlobBackground";
+import AuthIllustration from "../../components/svg/AuthIllustration";
+
+const LAST_USERNAME_KEY = "last_login_username";
 
 export default function LoginScreen() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { isEnabled, isAvailable, biometricType, hasPromptedUser, checkAvailability, saveCredentials, getCredentials, enableBiometrics, setHasPromptedUser } = useBiometricsStore();
+  const {
+    isEnabled,
+    isAvailable,
+    biometricType,
+    hasPromptedUser,
+    checkAvailability,
+    saveCredentials,
+    getCredentials,
+    enableBiometrics,
+    setHasPromptedUser,
+  } = useBiometricsStore();
   const [hasAttemptedBio, setHasAttemptedBio] = useState(false);
 
   // Check biometric availability on mount
   useEffect(() => {
-    checkAvailability();
+    const bootstrapLoginHints = async () => {
+      await checkAvailability();
+
+      const savedUsername = await SecureStore.getItemAsync(LAST_USERNAME_KEY);
+      if (savedUsername) {
+        setUsername(savedUsername);
+      }
+    };
+
+    bootstrapLoginHints();
   }, []);
 
   // Auto-trigger biometric login if enabled
@@ -35,41 +67,49 @@ export default function LoginScreen() {
     const response = await authApi.login({ username: user, password: pass });
     if (response && response.apiKey) {
       useAuthStore.getState().login(response, response.apiKey, response.apiKey);
+      await SecureStore.setItemAsync(
+        LAST_USERNAME_KEY,
+        response.username || user,
+      );
       return response;
     } else {
-      throw new Error(response.message || 'Login failed. Please check your credentials.');
+      throw new Error(
+        response.message || "Login failed. Please check your credentials.",
+      );
     }
   };
 
   const promptBiometricSetup = (user: string, pass: string) => {
-    const typeLabel = biometricType || 'Biometrics';
+    const typeLabel = biometricType || "Biometrics";
     Alert.alert(
       `Enable ${typeLabel}?`,
       `Would you like to use ${typeLabel} for faster logins and secure payments?`,
       [
         {
-          text: 'Not Now',
-          style: 'cancel',
+          text: "Not Now",
+          style: "cancel",
           onPress: () => {
             setHasPromptedUser();
-            router.replace('/(tabs)');
+            router.replace("/(tabs)");
           },
         },
         {
-          text: 'Enable',
+          text: "Enable",
           onPress: async () => {
             // Verify biometrics works before enabling
-            const authResult = await authenticateWithBiometrics(`Verify ${typeLabel} to enable`);
+            const authResult = await authenticateWithBiometrics(
+              `Verify ${typeLabel} to enable`,
+            );
             if (authResult.success) {
               await saveCredentials(user, pass);
               enableBiometrics();
             }
             setHasPromptedUser();
-            router.replace('/(tabs)');
+            router.replace("/(tabs)");
           },
         },
       ],
-      { cancelable: false }
+      { cancelable: false },
     );
   };
 
@@ -88,25 +128,34 @@ export default function LoginScreen() {
         if (isEnabled) {
           await saveCredentials(username, password);
         }
-        router.replace('/(tabs)');
+        router.replace("/(tabs)");
       }
     } catch (error: any) {
-      console.error('Login error:', error);
-      alert(error?.response?.data?.message || error.message || 'Network error occurred. Please try again.');
+      console.error("Login error:", error);
+      alert(
+        error?.response?.data?.message ||
+          error.message ||
+          "Network error occurred. Please try again.",
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleBiometricLogin = async () => {
-    const typeLabel = biometricType || 'Biometrics';
+    const typeLabel = biometricType || "Biometrics";
     setIsLoading(true);
     try {
       // Authenticate with biometrics
-      const authResult = await authenticateWithBiometrics(`Sign in with ${typeLabel}`);
+      const authResult = await authenticateWithBiometrics(
+        `Sign in with ${typeLabel}`,
+      );
       if (!authResult.success) {
-        if (authResult.error !== 'user_cancel' && authResult.error !== 'system_cancel') {
-          alert('Authentication failed. Please use your password to sign in.');
+        if (
+          authResult.error !== "user_cancel" &&
+          authResult.error !== "system_cancel"
+        ) {
+          alert("Authentication failed. Please use your password to sign in.");
         }
         return;
       }
@@ -114,33 +163,47 @@ export default function LoginScreen() {
       // Get stored credentials and login
       const credentials = await getCredentials();
       if (!credentials) {
-        alert('Stored credentials not found. Please sign in with your password.');
+        alert(
+          "Stored credentials not found. Please sign in with your password.",
+        );
         return;
       }
 
       await performLogin(credentials.username, credentials.password);
-      router.replace('/(tabs)');
+      router.replace("/(tabs)");
     } catch (error: any) {
-      console.error('Biometric login error:', error);
-      alert(error?.response?.data?.message || error.message || 'Login failed. Please try with your password.');
+      console.error("Biometric login error:", error);
+      alert(
+        error?.response?.data?.message ||
+          error.message ||
+          "Login failed. Please try with your password.",
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
   const showBiometricButton = isEnabled && isAvailable;
+  const subtitleText = showBiometricButton
+    ? `Use ${biometricType || "Biometrics"} to continue`
+    : username
+      ? `Welcome back, ${username}. Enter your password to continue.`
+      : "Enter your username and password to continue";
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <BlobBackground variant="auth" />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <AuthIllustration size={160} />
         <View style={styles.headerContainer}>
           <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>Sign in to continue to Madiotech</Text>
+          <Text style={styles.subtitle}>{subtitleText}</Text>
         </View>
 
         <View style={styles.formContainer}>
@@ -171,7 +234,10 @@ export default function LoginScreen() {
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
               />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeIcon}
+              >
                 {showPassword ? (
                   <EyeOff size={20} color="#9CA3AF" />
                 ) : (
@@ -185,26 +251,28 @@ export default function LoginScreen() {
             <Text style={styles.forgotPasswordText}>Recover password</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.button, isLoading && styles.buttonDisabled]} 
+          <TouchableOpacity
+            style={[styles.button, isLoading && styles.buttonDisabled]}
             onPress={handleLogin}
             disabled={isLoading}
             activeOpacity={0.9}
           >
-            <Text style={styles.buttonText}>{isLoading ? 'Authenticating...' : 'Sign In'}</Text>
+            <Text style={styles.buttonText}>
+              {isLoading ? "Authenticating..." : "Sign In"}
+            </Text>
           </TouchableOpacity>
 
           {/* Biometric Login Button */}
           {showBiometricButton && (
-            <TouchableOpacity 
-              style={styles.biometricButton} 
+            <TouchableOpacity
+              style={styles.biometricButton}
               onPress={handleBiometricLogin}
               disabled={isLoading}
               activeOpacity={0.8}
             >
               <Fingerprint size={24} color="#0A0A0A" strokeWidth={1.5} />
               <Text style={styles.biometricButtonText}>
-                Sign in with {biometricType || 'Biometrics'}
+                Sign in with {biometricType || "Biometrics"}
               </Text>
             </TouchableOpacity>
           )}
@@ -226,28 +294,28 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 80,
     paddingBottom: 40,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   headerContainer: {
     marginBottom: 48,
   },
   title: {
     fontSize: 36,
-    fontWeight: '800',
-    color: '#0A0A0A',
+    fontWeight: "800",
+    color: "#0A0A0A",
     marginBottom: 8,
     letterSpacing: -1,
   },
   subtitle: {
     fontSize: 16,
-    color: '#6B7280',
+    color: "#6B7280",
     letterSpacing: 0.2,
   },
   formContainer: {
@@ -258,15 +326,15 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#4B5563',
+    fontWeight: "600",
+    color: "#4B5563",
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
+    borderColor: "rgba(0,0,0,0.1)",
     borderRadius: 16,
     height: 60,
     paddingHorizontal: 16,
@@ -276,69 +344,69 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    height: '100%',
+    height: "100%",
     fontSize: 16,
-    color: '#0A0A0A',
-    fontWeight: '500',
+    color: "#0A0A0A",
+    fontWeight: "500",
   },
   eyeIcon: {
     padding: 8,
   },
   forgotPassword: {
-    alignSelf: 'flex-end',
+    alignSelf: "flex-end",
     marginTop: -8,
   },
   forgotPasswordText: {
-    color: '#0A0A0A',
+    color: "#0A0A0A",
     fontSize: 14,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
+    fontWeight: "600",
+    textDecorationLine: "underline",
   },
   button: {
-    backgroundColor: '#0A0A0A',
+    backgroundColor: "#0A0A0A",
     height: 60,
     borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: 16,
   },
   buttonDisabled: {
     opacity: 0.7,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     letterSpacing: 0.2,
   },
   biometricButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     height: 60,
     borderRadius: 30,
     borderWidth: 1.5,
-    borderColor: 'rgba(0,0,0,0.1)',
-    backgroundColor: '#FAFAFA',
+    borderColor: "rgba(0,0,0,0.1)",
+    backgroundColor: "#FAFAFA",
     gap: 10,
   },
   biometricButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#0A0A0A',
+    fontWeight: "600",
+    color: "#0A0A0A",
   },
   footerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     marginTop: 32,
   },
   footerText: {
-    color: '#6B7280',
+    color: "#6B7280",
     fontSize: 15,
   },
   footerLink: {
-    color: '#0A0A0A',
+    color: "#0A0A0A",
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 });

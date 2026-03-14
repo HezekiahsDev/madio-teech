@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -8,12 +8,19 @@ import {
   Animated,
   Linking,
   Platform,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Check, Clock, Mail, Phone, ExternalLink } from 'lucide-react-native';
-import { router } from 'expo-router';
-import type { LucideIcon } from 'lucide-react-native';
-import ComingSoonBackground from './svg/ComingSoonBackground';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  ArrowLeft,
+  Check,
+  Clock,
+  Mail,
+  Phone,
+  ExternalLink,
+} from "lucide-react-native";
+import { router } from "expo-router";
+import type { LucideIcon } from "lucide-react-native";
+import ComingSoonBackground from "./svg/ComingSoonBackground";
 
 interface FeatureItem {
   label: string;
@@ -29,11 +36,11 @@ interface ComingSoonScreenProps {
 }
 
 const CONTACT = {
-  email: 'support@madiotech.com',
-  phone: '+2348000623460',
-  phoneDisplay: '+234 800 MADIO',
-  whatsapp: '+2348000623460',
-  website: 'www.madiotech.com',
+  email: "madiotech.ng@gmail.com",
+  phone: "+234903535818",
+  phoneDisplay: "+234 800 MADIO",
+  whatsapp: "+234903535818",
+  website: "www.madiotech.com.ng",
 };
 
 export default function ComingSoonScreen({
@@ -42,7 +49,7 @@ export default function ComingSoonScreen({
   icon: Icon,
   features = [],
   showContactInfo = false,
-  timeline = 'Coming Soon',
+  timeline = "Coming Soon",
 }: ComingSoonScreenProps) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -63,7 +70,7 @@ export default function ComingSoonScreen({
           duration: 1500,
           useNativeDriver: true,
         }),
-      ])
+      ]),
     ).start();
 
     // Fade in content
@@ -96,7 +103,9 @@ export default function ComingSoonScreen({
   };
 
   const handleWhatsApp = () => {
-    const message = encodeURIComponent(`Hello MadioTech, I need help with ${title}.`);
+    const message = encodeURIComponent(
+      `Hello MadioTech, I need help with ${title}.`,
+    );
     Linking.openURL(`https://wa.me/${CONTACT.whatsapp}?text=${message}`);
   };
 
@@ -104,7 +113,10 @@ export default function ComingSoonScreen({
     <SafeAreaView style={styles.container}>
       <ComingSoonBackground />
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
           <ArrowLeft size={22} color="#0A0A0A" strokeWidth={2} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{title}</Text>
@@ -131,7 +143,9 @@ export default function ComingSoonScreen({
           </Animated.View>
 
           {/* Badge */}
-          <Animated.View style={[styles.badge, { transform: [{ scale: badgeScale }] }]}>
+          <Animated.View
+            style={[styles.badge, { transform: [{ scale: badgeScale }] }]}
+          >
             <Clock size={14} color="#6B7280" strokeWidth={2} />
             <Text style={styles.badgeText}>{timeline}</Text>
           </Animated.View>
@@ -190,7 +204,9 @@ export default function ComingSoonScreen({
                 </View>
                 <View style={styles.contactInfo}>
                   <Text style={styles.contactLabel}>Call Us</Text>
-                  <Text style={styles.contactValue}>{CONTACT.phoneDisplay}</Text>
+                  <Text style={styles.contactValue}>
+                    {CONTACT.phoneDisplay}
+                  </Text>
                 </View>
                 <ExternalLink size={16} color="#D1D5DB" />
               </TouchableOpacity>
@@ -207,7 +223,8 @@ export default function ComingSoonScreen({
           {/* Bottom Note */}
           <View style={styles.noteContainer}>
             <Text style={styles.noteText}>
-              We're working hard to bring you the best experience. Stay tuned for updates!
+              We're working hard to bring you the best experience. Stay tuned
+              for updates!
             </Text>
           </View>
         </Animated.View>
@@ -219,31 +236,31 @@ export default function ComingSoonScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
+    borderBottomColor: "rgba(0,0,0,0.05)",
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F9FAFB',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#F9FAFB",
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    borderColor: "rgba(0,0,0,0.05)",
   },
   headerTitle: {
     fontSize: 17,
-    fontWeight: '600',
-    color: '#0A0A0A',
+    fontWeight: "600",
+    color: "#0A0A0A",
     letterSpacing: -0.2,
   },
   scrollContent: {
@@ -251,7 +268,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   heroSection: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingTop: 48,
     paddingBottom: 32,
   },
@@ -259,46 +276,46 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#F9FAFB',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#F9FAFB",
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
+    borderColor: "rgba(0,0,0,0.03)",
   },
   iconCircleMiddle: {
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.04)',
+    borderColor: "rgba(0,0,0,0.04)",
   },
   iconCircleInner: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#E5E7EB',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#E5E7EB",
+    justifyContent: "center",
+    alignItems: "center",
   },
   badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: "#F9FAFB",
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: "#E5E7EB",
     gap: 6,
   },
   badgeText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#6B7280',
+    fontWeight: "600",
+    color: "#6B7280",
     letterSpacing: 0.3,
   },
   contentSection: {
@@ -306,87 +323,87 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: '700',
-    color: '#0A0A0A',
-    textAlign: 'center',
+    fontWeight: "700",
+    color: "#0A0A0A",
+    textAlign: "center",
     letterSpacing: -0.5,
     marginBottom: 12,
   },
   description: {
     fontSize: 15,
-    color: '#6B7280',
-    textAlign: 'center',
+    color: "#6B7280",
+    textAlign: "center",
     lineHeight: 22,
     marginBottom: 32,
     paddingHorizontal: 16,
   },
   featuresCard: {
-    backgroundColor: '#FAFAFA',
+    backgroundColor: "#FAFAFA",
     borderRadius: 20,
     padding: 24,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.04)',
+    borderColor: "rgba(0,0,0,0.04)",
   },
   featuresTitle: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#0A0A0A',
+    fontWeight: "700",
+    color: "#0A0A0A",
     marginBottom: 18,
     letterSpacing: -0.2,
   },
   featureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 14,
   },
   checkContainer: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#ECFDF5',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#ECFDF5",
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 14,
   },
   featureText: {
     fontSize: 15,
-    color: '#374151',
-    fontWeight: '500',
+    color: "#374151",
+    fontWeight: "500",
     flex: 1,
   },
   contactCard: {
-    backgroundColor: '#0A0A0A',
+    backgroundColor: "#0A0A0A",
     borderRadius: 20,
     padding: 24,
     marginBottom: 20,
   },
   contactTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: "700",
+    color: "#FFFFFF",
     marginBottom: 4,
     letterSpacing: -0.2,
   },
   contactSubtitle: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: "#9CA3AF",
     marginBottom: 20,
   },
   contactRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
+    borderBottomColor: "rgba(255,255,255,0.08)",
   },
   contactIconBox: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255,255,255,0.1)",
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 14,
   },
   contactInfo: {
@@ -394,36 +411,36 @@ const styles = StyleSheet.create({
   },
   contactLabel: {
     fontSize: 12,
-    color: '#9CA3AF',
-    fontWeight: '500',
+    color: "#9CA3AF",
+    fontWeight: "500",
     marginBottom: 2,
   },
   contactValue: {
     fontSize: 15,
-    color: '#FFFFFF',
-    fontWeight: '600',
+    color: "#FFFFFF",
+    fontWeight: "600",
   },
   whatsappButton: {
     marginTop: 18,
-    backgroundColor: '#25D366',
+    backgroundColor: "#25D366",
     borderRadius: 14,
     paddingVertical: 14,
-    alignItems: 'center',
+    alignItems: "center",
   },
   whatsappButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   noteContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 24,
     paddingHorizontal: 32,
   },
   noteText: {
     fontSize: 13,
-    color: '#9CA3AF',
-    textAlign: 'center',
+    color: "#9CA3AF",
+    textAlign: "center",
     lineHeight: 20,
   },
 });

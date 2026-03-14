@@ -1,6 +1,7 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { create } from "zustand";
+import { useBiometricsStore } from "./biometricsStore";
+import { persist, createJSONStorage } from "zustand/middleware";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export interface User {
   uid?: string;
@@ -22,7 +23,7 @@ export interface User {
   notice1?: string;
   notice2?: string;
   palmpay?: string;
-  '9psb'?: string;
+  "9psb"?: string;
 }
 
 interface AuthState {
@@ -53,6 +54,12 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
+        // Clear any saved biometric credentials when user logs out
+        const clearBio = useBiometricsStore.getState().clearCredentials;
+        if (clearBio) {
+          clearBio();
+        }
+
         set({
           user: null,
           bearerToken: null,
@@ -63,13 +70,13 @@ export const useAuthStore = create<AuthState>()(
 
       updateWalletBalance: (newBalance: string) => {
         set((state) => ({
-          user: state.user ? { ...state.user, wallet: newBalance } : null
+          user: state.user ? { ...state.user, wallet: newBalance } : null,
         }));
       },
     }),
     {
-      name: 'auth-storage', // name of the item in the storage (must be unique)
+      name: "auth-storage", // name of the item in the storage (must be unique)
       storage: createJSONStorage(() => AsyncStorage), // use AsyncStorage for React Native
-    }
-  )
+    },
+  ),
 );
