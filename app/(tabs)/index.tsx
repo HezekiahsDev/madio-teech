@@ -208,7 +208,7 @@ export default function HomeScreen() {
             <View style={styles.balanceLabelRow}>
               <Text style={styles.balanceLabel}>Total Balance</Text>
               <TouchableOpacity
-                onPress={() => setShowBalance((s) => !s)}
+                onPress={() => setShowBalance(!showBalance)}
                 style={styles.eyeBtn}
                 accessibilityLabel={
                   showBalance ? "Hide balance" : "Show balance"

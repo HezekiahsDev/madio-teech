@@ -1,14 +1,14 @@
-import axios from 'axios';
-import { useAuthStore } from '../../store/useAuthStore';
+import axios from "axios";
+import { useAuthStore } from "../../store/useAuthStore";
 
 // Create a configured Axios instance
 export const apiClient = axios.create({
-  baseURL: 'https://madiotech.com.ng/api/',
+  baseURL: "https://madiotech.com.ng/api/",
   timeout: 30000, // 30 seconds as per the old Retrofit config
   headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json'
-  }
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  },
 });
 
 // Request interceptor to attach authentication tokens
@@ -30,7 +30,7 @@ apiClient.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // Response interceptor to handle global errors (e.g. 401 Unauthorized)
@@ -38,12 +38,16 @@ apiClient.interceptors.response.use(
   (response) => {
     return response;
   },
-  (error) => {
+  async (error) => {
     if (error.response && error.response.status === 401) {
       // Handle unauthorized errors (e.g., clear session and redirect)
       const logout = useAuthStore.getState().logout;
-      logout();
+      try {
+        await logout();
+      } catch (logoutError) {
+        console.error("Failed to process logout after 401:", logoutError);
+      }
     }
     return Promise.reject(error);
-  }
+  },
 );

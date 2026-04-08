@@ -21,6 +21,7 @@ import BlobBackground from "../../components/svg/BlobBackground";
 import AuthIllustration from "../../components/svg/AuthIllustration";
 
 const LAST_USERNAME_KEY = "last_login_username";
+const MAX_BIOMETRIC_CREDENTIAL_FAILURES = 3;
 
 export default function LoginScreen() {
   const [username, setUsername] = useState("");
@@ -37,6 +38,9 @@ export default function LoginScreen() {
     saveCredentials,
     getCredentials,
     enableBiometrics,
+    disableBiometricsAfterCredentialFailures,
+    recordBiometricCredentialFailure,
+    resetBiometricCredentialFailures,
     setHasPromptedUser,
   } = useBiometricsStore();
   const [hasAttemptedBio, setHasAttemptedBio] = useState(false);
@@ -44,29 +48,38 @@ export default function LoginScreen() {
   // Check biometric availability on mount
   useEffect(() => {
     const bootstrapLoginHints = async () => {
-      await checkAvailability();
+      try {
+        await checkAvailability();
 
-      const savedUsername = await SecureStore.getItemAsync(LAST_USERNAME_KEY);
-      if (savedUsername) {
-        setUsername(savedUsername);
+        const savedUsername = await SecureStore.getItemAsync(LAST_USERNAME_KEY);
+        if (savedUsername) {
+          setUsername(savedUsername);
+        }
+      } catch (error) {
+        console.error("Failed to bootstrap login hints:", error);
       }
     };
 
     bootstrapLoginHints();
-  }, []);
+  }, [checkAvailability]);
 
   // Auto-trigger biometric login if enabled
   useEffect(() => {
-    if (isEnabled && isAvailable && !hasAttemptedBio && !isLoading) {
+    const shouldAttemptAutoBio =
+      isEnabled && isAvailable && !hasAttemptedBio && !isLoading;
+
+    if (shouldAttemptAutoBio) {
       setHasAttemptedBio(true);
       handleBiometricLogin();
     }
-  }, [isEnabled, isAvailable, isLoading]);
+  }, [hasAttemptedBio, isAvailable, isEnabled, isLoading]);
 
   const performLogin = async (user: string, pass: string) => {
     const response = await authApi.login({ username: user, password: pass });
     if (response && response.apiKey) {
-      useAuthStore.getState().login(response, response.apiKey, response.apiKey);
+      // The backend currently returns apiKey; we use it as the auth header token source.
+      const authToken = response.apiKey;
+      useAuthStore.getState().login(response, authToken, response.apiKey);
       await SecureStore.setItemAsync(
         LAST_USERNAME_KEY,
         response.username || user,
@@ -96,13 +109,21 @@ export default function LoginScreen() {
         {
           text: "Enable",
           onPress: async () => {
-            // Verify biometrics works before enabling
-            const authResult = await authenticateWithBiometrics(
-              `Verify ${typeLabel} to enable`,
-            );
-            if (authResult.success) {
-              await saveCredentials(user, pass);
-              enableBiometrics();
+            try {
+              // Verify biometrics works before enabling
+              const authResult = await authenticateWithBiometrics(
+                `Verify ${typeLabel} to enable`,
+              );
+              if (authResult.success) {
+                await saveCredentials(user, pass);
+                enableBiometrics();
+              }
+            } catch (error) {
+              console.error("Failed to enable biometrics:", error);
+              Alert.alert(
+                "Unable to enable biometrics",
+                "Please try again from your profile settings.",
+              );
             }
             setHasPromptedUser();
             router.replace("/(tabs)");
@@ -169,10 +190,34 @@ export default function LoginScreen() {
         return;
       }
 
-      await performLogin(credentials.username, credentials.password);
-      router.replace("/(tabs)");
+      try {
+        await performLogin(credentials.username, credentials.password);
+        resetBiometricCredentialFailures();
+        router.replace("/(tabs)");
+      } catch (credentialLoginError: any) {
+        const failureCount = recordBiometricCredentialFailure();
+        const remainingAttempts =
+          MAX_BIOMETRIC_CREDENTIAL_FAILURES - failureCount;
+
+        if (failureCount >= MAX_BIOMETRIC_CREDENTIAL_FAILURES) {
+          await disableBiometricsAfterCredentialFailures();
+          Alert.alert(
+            "Biometric login disabled",
+            "Biometric login was disabled after repeated credential failures. Use password login, reset your password if needed, then re-enable biometrics from profile.",
+          );
+          return;
+        }
+
+        Alert.alert(
+          "Biometric login failed",
+          credentialLoginError?.response?.data?.message ||
+            credentialLoginError?.message ||
+            `Stored credentials are no longer valid. ${remainingAttempts} attempt(s) remaining before biometric login is disabled.`,
+        );
+      }
     } catch (error: any) {
       console.error("Biometric login error:", error);
+
       alert(
         error?.response?.data?.message ||
           error.message ||
