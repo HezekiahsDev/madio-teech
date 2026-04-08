@@ -43,8 +43,17 @@ export default function ProfileScreen() {
   }, []);
 
   const handleLogout = () => {
-    logout();
-    router.replace("/(auth)/login");
+    Alert.alert("Sign out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign out",
+        style: "destructive",
+        onPress: async () => {
+          await logout();
+          router.replace("/(auth)/login");
+        },
+      },
+    ]);
   };
 
   const handleBiometricToggle = async (value: boolean) => {

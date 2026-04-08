@@ -34,6 +34,8 @@ interface AuthState {
   login: (user: User, bearerToken: string, apiKey: string) => void;
   logout: () => void;
   updateWalletBalance: (newBalance: string) => void;
+  showBalance: boolean;
+  setShowBalance: (visible: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -43,6 +45,7 @@ export const useAuthStore = create<AuthState>()(
       bearerToken: null,
       apiKey: null,
       isAuthenticated: false,
+      showBalance: true,
 
       login: (user, bearerToken, apiKey) => {
         set({
@@ -72,6 +75,10 @@ export const useAuthStore = create<AuthState>()(
         set((state) => ({
           user: state.user ? { ...state.user, wallet: newBalance } : null,
         }));
+      },
+
+      setShowBalance: (visible: boolean) => {
+        set(() => ({ showBalance: visible }) as any);
       },
     }),
     {
