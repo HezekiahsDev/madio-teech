@@ -2,11 +2,10 @@ import { Stack, router, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "../store/useAuthStore";
 import { useBiometricsStore } from "../store/biometricsStore";
+import { getLastInactiveAt, recordLastInactiveAt } from "../utils/session";
 
-const LAST_INACTIVE_AT_KEY = "last_inactive_at";
 const INACTIVITY_LIMIT_MS = 4 * 60 * 60 * 1000; // 4 hours
 
 export default function RootLayout() {
@@ -42,15 +41,19 @@ export default function RootLayout() {
       }
 
       if (isBiometricEnabled) {
+        const inactiveAt = await getLastInactiveAt();
+        if (inactiveAt === null) {
+          return;
+        }
+
         lockSession();
         return;
       }
 
       try {
-        const inactiveAtStr = await AsyncStorage.getItem(LAST_INACTIVE_AT_KEY);
-        if (!inactiveAtStr) return;
+        const inactiveAt = await getLastInactiveAt();
+        if (inactiveAt === null) return;
 
-        const inactiveAt = Number(inactiveAtStr);
         const isExpired =
           Number.isFinite(inactiveAt) &&
           Date.now() - inactiveAt >= INACTIVITY_LIMIT_MS;
@@ -80,27 +83,28 @@ export default function RootLayout() {
           if (nextState === "inactive" || nextState === "background") {
             // Record when the app went inactive/backgrounded so we can
             // decide on resume whether the session expired.
-            await AsyncStorage.setItem(
-              LAST_INACTIVE_AT_KEY,
-              String(Date.now()),
-            );
+            await recordLastInactiveAt();
             return;
           }
 
           if (nextState === "active" && isAuthenticated) {
-            // Enforce biometric re-authentication on every app reopen
-            // without destroying the user session.
-            if (isBiometricEnabled) {
+            // Avoid re-locking while the dedicated unlock screen is already
+            // handling biometric auth; otherwise the prompt can immediately
+            // send the app active again and re-trigger the lock loop.
+            if (isBiometricEnabled && !segments.includes("unlock")) {
+              const inactiveAt = await getLastInactiveAt();
+              if (inactiveAt === null) {
+                return;
+              }
+
               lockSession();
               return;
             }
 
             // For non-biometric users, apply inactivity timeout.
-            const inactiveAtStr =
-              await AsyncStorage.getItem(LAST_INACTIVE_AT_KEY);
-            if (!inactiveAtStr) return;
+            const inactiveAt = await getLastInactiveAt();
+            if (inactiveAt === null) return;
 
-            const inactiveAt = Number(inactiveAtStr);
             const isExpired =
               Number.isFinite(inactiveAt) &&
               Date.now() - inactiveAt >= INACTIVITY_LIMIT_MS;
@@ -117,7 +121,7 @@ export default function RootLayout() {
     return () => {
       subscription.remove();
     };
-  }, [isAuthenticated, isBiometricEnabled, lockSession, logout]);
+  }, [isAuthenticated, isBiometricEnabled, lockSession, logout, segments]);
 
   useEffect(() => {
     if (!isMounted || !storesReady) return;

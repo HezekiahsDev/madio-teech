@@ -17,6 +17,7 @@ import { authApi } from "../../lib/api/auth";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useBiometricsStore } from "../../store/biometricsStore";
 import { authenticateWithBiometrics } from "../../utils/biometrics";
+import { clearLastInactiveAt } from "../../utils/session";
 import BlobBackground from "../../components/svg/BlobBackground";
 import AuthIllustration from "../../components/svg/AuthIllustration";
 
@@ -38,6 +39,7 @@ export default function LoginScreen() {
     saveCredentials,
     getCredentials,
     enableBiometrics,
+    disableBiometrics,
     disableBiometricsAfterCredentialFailures,
     recordBiometricCredentialFailure,
     resetBiometricCredentialFailures,
@@ -51,6 +53,13 @@ export default function LoginScreen() {
       try {
         await checkAvailability();
 
+        if (isEnabled) {
+          const credentials = await getCredentials();
+          if (!credentials) {
+            await disableBiometrics();
+          }
+        }
+
         const savedUsername = await SecureStore.getItemAsync(LAST_USERNAME_KEY);
         if (savedUsername) {
           setUsername(savedUsername);
@@ -61,7 +70,7 @@ export default function LoginScreen() {
     };
 
     bootstrapLoginHints();
-  }, [checkAvailability]);
+  }, [checkAvailability, disableBiometrics, getCredentials, isEnabled]);
 
   // Auto-trigger biometric login if enabled
   useEffect(() => {
@@ -74,12 +83,21 @@ export default function LoginScreen() {
     }
   }, [hasAttemptedBio, isAvailable, isEnabled, isLoading]);
 
-  const performLogin = async (user: string, pass: string) => {
-    const response = await authApi.login({ username: user, password: pass });
+  const performLogin = async (
+    user: string,
+    pass: string,
+    authSource: "manual" | "biometric" = "manual",
+  ) => {
+    const response = await authApi.login({
+      username: user,
+      password: pass,
+      authSource,
+    });
     if (response && response.apiKey) {
       // The backend currently returns apiKey; we use it as the auth header token source.
       const authToken = response.apiKey;
       useAuthStore.getState().login(response, authToken, response.apiKey);
+      await clearLastInactiveAt();
       await SecureStore.setItemAsync(
         LAST_USERNAME_KEY,
         response.username || user,
@@ -101,8 +119,9 @@ export default function LoginScreen() {
         {
           text: "Not Now",
           style: "cancel",
-          onPress: () => {
+          onPress: async () => {
             setHasPromptedUser();
+            await clearLastInactiveAt();
             router.replace("/(tabs)");
           },
         },
@@ -115,7 +134,6 @@ export default function LoginScreen() {
                 `Verify ${typeLabel} to enable`,
               );
               if (authResult.success) {
-                await saveCredentials(user, pass);
                 enableBiometrics();
               }
             } catch (error) {
@@ -125,6 +143,7 @@ export default function LoginScreen() {
                 "Please try again from your profile settings.",
               );
             }
+            await clearLastInactiveAt();
             setHasPromptedUser();
             router.replace("/(tabs)");
           },
@@ -139,16 +158,17 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
-      await performLogin(username, password);
+      await performLogin(username, password, "manual");
+
+      // Securely store credentials so the user can easily enable
+      // biometrics later from their profile settings without having to log in again.
+      await saveCredentials(username, password);
 
       // After successful login, check if we should prompt for biometrics
       if (isAvailable && !isEnabled && !hasPromptedUser) {
         promptBiometricSetup(username, password);
       } else {
-        // If biometrics is already enabled, update stored credentials in case password changed
-        if (isEnabled) {
-          await saveCredentials(username, password);
-        }
+        await clearLastInactiveAt();
         router.replace("/(tabs)");
       }
     } catch (error: any) {
@@ -191,8 +211,13 @@ export default function LoginScreen() {
       }
 
       try {
-        await performLogin(credentials.username, credentials.password);
+        await performLogin(
+          credentials.username,
+          credentials.password,
+          "biometric",
+        );
         resetBiometricCredentialFailures();
+        await clearLastInactiveAt();
         router.replace("/(tabs)");
       } catch (credentialLoginError: any) {
         const failureCount = recordBiometricCredentialFailure();
