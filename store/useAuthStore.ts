@@ -65,13 +65,13 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: async () => {
-        // Clear any saved biometric credentials when user logs out
-        const clearBio = useBiometricsStore.getState().clearCredentials;
-        if (clearBio) {
+        // Signing out must fully disable biometric login for the next session.
+        const disableBio = useBiometricsStore.getState().disableBiometrics;
+        if (disableBio) {
           try {
-            await clearBio();
+            await disableBio();
           } catch (error) {
-            console.error("Failed to clear biometric credentials:", error);
+            console.error("Failed to disable biometric credentials:", error);
           }
         }
 
