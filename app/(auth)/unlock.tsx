@@ -5,6 +5,7 @@ import { Fingerprint, LogOut } from "lucide-react-native";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useBiometricsStore } from "../../store/biometricsStore";
 import { authenticateWithBiometrics } from "../../utils/biometrics";
+import { clearLastInactiveAt } from "../../utils/session";
 import BlobBackground from "../../components/svg/BlobBackground";
 import AuthIllustration from "../../components/svg/AuthIllustration";
 
@@ -85,6 +86,7 @@ export default function UnlockScreen() {
       }
 
       unlockSession();
+      await clearLastInactiveAt();
       router.replace("/(tabs)");
     } catch (error: any) {
       console.error("Unlock error:", error);
